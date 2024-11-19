@@ -7,14 +7,12 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node server.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
-    "@types/bcrypt": "^5.0.2",
-    "@types/pg": "^8.11.10",
     "axios": "^1.6.7",
-    "bcrypt": "^5.1.1",
     "clsx": "^2.1.0",
     "date-fns": "^3.3.1",
     "lucide-react": "^0.344.0",
@@ -44,3 +42,4 @@
     "vite": "^5.4.2"
   }
 }
+
