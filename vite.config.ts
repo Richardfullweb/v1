@@ -7,12 +7,4 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
-  server: {
-    hmr: {
-      overlay: false
-    }
-  },
-  esbuild: {
-    target: 'esnext'
-  }
 });
