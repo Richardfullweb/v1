@@ -1,121 +1,107 @@
-<<<<<<< HEAD
-# CareConnect-v1
+# Meu Evento
 
-A modern healthcare connection platform designed to improve patient care and healthcare provider coordination.
-=======
-# CareConnect
+Este é o projeto Meu Evento, uma aplicação desenvolvida para gerenciar eventos e agendamentos.
 
-Uma plataforma moderna para conectar cuidadores profissionais e idosos, facilitando o acesso a cuidados de qualidade e personalizados.
+## Funcionalidades
+- **Dashboard do Cuidador**: Permite que os cuidadores visualizem e gerenciem seus agendamentos.
+- **Dashboard do Cliente**: Permite que os clientes visualizem seus agendamentos e status de pagamento.
+- **Sistema de Avaliação**: Os clientes podem avaliar os cuidadores após a conclusão dos serviços.
+- **Notificações**: Notificações pendentes são geradas para os cuidadores sobre novos agendamentos.
 
-## 🚀 Funcionalidades
+## Estrutura do Projeto
+- **src/**: Contém todos os componentes da aplicação.
+  - **components/**: Componentes reutilizáveis da interface do usuário.
+  - **Dashboard/**: Contém os dashboards para cuidadores e clientes.
+  - **Payments/**: Gerencia o processamento de pagamentos.
+  - **notifications/**: Gerencia as notificações pendentes.
 
-- 👥 **Cadastro de Usuários**
-  - Perfis para cuidadores e idosos/familiares
-  - Verificação de documentos
-  - Sistema de avaliações
+## Regras de Segurança do Firestore
+As regras de segurança do Firestore estão configuradas para garantir que os usuários autenticados possam acessar e modificar apenas seus próprios dados.
 
-- 🔍 **Busca Inteligente**
-  - Filtros por especialidade
-  - Localização
-  - Disponibilidade
-  - Avaliações
+## Como Executar o Projeto
+1. Clone o repositório.
+2. Instale as dependências com `npm install`.
+3. Inicie o servidor de desenvolvimento com `npm run dev`.
 
-- 📅 **Agendamento**
-  - Sistema de agendamento em tempo real
-  - Confirmação automática
-  - Lembretes por email e notificação
+## Contribuições
+Contribuições são bem-vindas! Sinta-se à vontade para abrir um pull request ou issue para discutir melhorias ou correções.
 
-- 💬 **Sistema de Notificações**
-  - Notificações em tempo real
-  - Alertas de novos agendamentos
-  - Atualizações de status
+## Licença
+Este projeto está licenciado sob a MIT License.
 
-- 💳 **Pagamentos**
-  - Integração com sistema de pagamentos
-  - Histórico de transações
-  - Comprovantes automáticos
+## Resumo do Sistema
 
-## 🛠️ Tecnologias Utilizadas
+### Regras de Negócio
+- **Taxa da Plataforma**: 25% sobre os serviços.
+- **Taxas Diferentes**: Não haverá taxas diferentes para diferentes tipos de serviço.
+- **Planos para Profissionais**: Não haverá planos diferentes com taxas diferentes.
 
-- **Frontend:**
-  - React.js
-  - TypeScript
-  - Tailwind CSS
-  - Lucide Icons
+### Dados Bancários
+- **Cadastro de Dados Bancários**: Os cuidadores devem cadastrar seus dados bancários no perfil, com uma aba específica para dados de recebimento.
 
-- **Backend:**
-  - Firebase
-  - Cloud Firestore
-  - Authentication
-  - Cloud Functions
+### Fluxo de Pagamento
+- **Valor Mínimo para Pagamentos**: R$100.
+- **Opção de Parcelamento**: Sim.
+- **Reembolsos**: Cancelamentos devem ser feitos com 24 horas de antecedência.
 
-- **Outras Ferramentas:**
-  - Vite
-  - React Router
-  - React Hook Form
-  - Zod
+### Notificações
+- **Tipos de Notificações**:
+  - Confirmação de pagamento.
+  - Status de pagamento (pendente, efetuado, recusado).
+- **Acompanhamento de Recebimentos**: Os profissionais poderão acompanhar seus recebimentos pelo painel e no status de pagamento.
 
-## 📦 Instalação
+### Relatórios
+- **Informações nos Relatórios Financeiros**:
+  - Visão geral dos pagamentos (mensais, semanais, diários).
+  - Visão por cliente e por cuidador.
+- **Frequência de Geração de Relatórios**: A definir.
 
-1. Clone o repositório:
-```bash
-git clone https://github.com/seu-usuario/care-connect.git
-```
+### Fluxo Atualizado e Melhorado
+1. **Cliente faz a solicitação**: Escolhe a categoria, analisa detalhes do cuidador, seleciona um profissional e preenche o formulário.
+2. **Cuidador recebe a solicitação**: Visualiza detalhes e pode aceitar ou recusar. O cliente é notificado da decisão.
+3. **Se aceito**: O cliente é notificado e deve pagar até 24h antes do atendimento.
+4. **Após o atendimento**: O cuidador marca o serviço como concluído e o cliente recebe notificação para avaliação.
+5. **Pagamento e Avaliação**: O cliente realiza o pagamento e a plataforma retém 10% do valor.
 
-2. Instale as dependências:
-```bash
-cd care-connect
-npm install
-```
+### Ajustes Necessários no Código
+1. **Status do Request**: Adicionar novos status (rejected, payment_pending, evaluation_pending).
+2. **Sistema de Notificações**: Implementar notificações em tempo real.
+3. **Pagamento**: Integrar interface de pagamento e gerenciar splits.
+4. **Avaliações**: Lógica para avaliação automática e exibição no dashboard.
+5. **Informações de Contato**: Compartilhar após aceite.
 
-3. Configure as variáveis de ambiente:
-- Crie um arquivo `.env` na raiz do projeto
-- Adicione as configurações do Firebase:
-```env
-VITE_FIREBASE_API_KEY=sua_api_key
-VITE_FIREBASE_AUTH_DOMAIN=seu_auth_domain
-VITE_FIREBASE_PROJECT_ID=seu_project_id
-VITE_FIREBASE_STORAGE_BUCKET=seu_storage_bucket
-VITE_FIREBASE_MESSAGING_SENDER_ID=seu_messaging_sender_id
-VITE_FIREBASE_APP_ID=seu_app_id
-```
+### Interface do Sistema
+1. **Página de Busca**: Exibir cuidadores disponíveis.
+2. **Formulário de Solicitação**: Input para data, hora e detalhes.
+3. **Dashboard do Cuidador**: Lista de solicitações recebidas.
+4. **Dashboard do Cliente**: Histórico de solicitações.
+5. **Sistema de Notificações**: Banner ou modal para eventos importantes.
 
-4. Inicie o servidor de desenvolvimento:
-```bash
-npm run dev
-```
+### Design e Implementação
+- **Frameworks e Tecnologias**: React com Tailwind CSS.
+- **Interface Moderna e Responsiva**: Design acessível para todos os dispositivos.
 
-## 🌟 Recursos
+### Aspectos Técnicos
+- **Stack**: React/TypeScript, Tailwind CSS, Firebase.
+- **Segurança**: Autenticação robusta e proteção de dados.
 
-- Design responsivo
-- Interface intuitiva
-- Sistema de notificações em tempo real
-- Integração com mapas
-- Sistema de avaliações
-- Chat em tempo real
-- Painel administrativo
+### O Que Já Temos
+- **Sistema de Usuários e Perfis**: Implementado.
+- **Interface do Usuário**: Design responsivo e componentes reutilizáveis.
+- **Sistema de Agendamento**: Funcionalidades básicas implementadas.
+- **Dashboards**: Dashboards do Cliente e Cuidador implementados.
+- **Sistema de Notificações**: Estrutura básica implementada.
+- **Sistema de Pagamentos**: Estrutura de preços definida.
+- **Sistema de Avaliações**: Estrutura básica implementada.
+- **Área Administrativa**: CRUD de usuários e serviços implementados.
+- **Infraestrutura Técnica**: Firebase configurado.
 
-## 📱 Screenshots
-
-[Adicionar screenshots do aplicativo aqui]
-
-## 🤝 Contribuindo
-
-1. Faça um Fork do projeto
-2. Crie sua Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a Branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
-
-## 📄 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
-
-## 👥 Autores
-
-- **Wagner** - *Desenvolvimento Full Stack* - [GitHub](https://github.com/seu-usuario)
-
-## 📞 Suporte
-
-Para suporte, envie um email para [seu-email@exemplo.com] ou abra uma issue no GitHub.
->>>>>>> 4f23a1b (Primeiro commit: Versão inicial do CareConnectpro)
+## Próximos Passos
+1. Implementar componentes de interface do usuário para:
+   - Processamento de pagamento.
+   - Envio de avaliações.
+   - Exibição aprimorada de notificações.
+2. Focar em:
+   - Fluxo de agendamento.
+   - Melhorias no painel de controle.
+   - Recursos de monitoramento para administradores.
