@@ -1,66 +1,70 @@
-export type EventType = 
-  | 'party' | 'show' | 'course' | 'workshop' | 'sports' 
-  | 'gastronomy' | 'theater' | 'congress' | 'lecture' 
-  | 'tour' | 'children' | 'tech' | 'religious' | 'other';
+export type AppointmentStatus = 
+  | 'pending'    // Cliente solicitou
+  | 'accepted'   // Cuidador aceitou
+  | 'paid'       // Cliente pagou
+  | 'completed'  // Serviço prestado
+  | 'rated'      // Cliente avaliou
+  | 'cancelled'; // Cancelado
 
-export interface User {
+export interface UserProfile {
   id: string;
-  name: string;
   email: string;
-  role: 'admin' | 'organizer' | 'user';
-  avatar?: string;
+  name?: string;
+  photoURL?: string;
+  type?: 'client' | 'caregiver';
+  phone?: string;
+  address?: string;
+  bio?: string;
+  specialties?: string[];
+  role?: string;
+  fullName?: string;
+  imageUrl?: string;
+  phoneNumber?: string;
+  favorites?: string[];
+  availability?: {
+    [key: string]: { start: string; end: string; }[];
+  };
+  createdAt?: any;
+  updatedAt?: any;
 }
 
-export interface Event {
+export interface Appointment {
   id: string;
-  title: string;
-  description: string;
-  type: EventType;
+  clientId: string;
+  caregiverId: string;
+  caregiverName?: string;
   date: string;
-  endDate?: string;
-  location: string;
-  organizerId: string;
-  imageUrl: string;
-  price: number;
-  earlyBirdPrice?: number;
-  earlyBirdEndDate?: string;
-  capacity: number;
-  registrations: number;
-  status: 'draft' | 'published' | 'cancelled';
-  featured: boolean;
-  tags: string[];
-  amenities: string[];
-  schedule?: EventScheduleItem[];
-  ticketTypes: TicketType[];
+  startTime: string;
+  endTime: string;
+  status: AppointmentStatus;
+  amount?: number;
+  notes?: string;
+  createdAt: any;
+  updatedAt: any;
+  paymentDate?: any;
+  completedDate?: any;
+  ratingDate?: any;
+  rating?: number;
+  ratingComment?: string;
 }
 
-export interface EventScheduleItem {
-  time: string;
-  title: string;
-  description?: string;
-  speaker?: string;
+export interface TimeSlot {
+  start: string;
+  end: string;
+  isAvailable: boolean;
 }
 
-export interface TicketType {
+export interface CaregiverRating {
   id: string;
-  name: string;
-  description: string;
-  price: number;
-  quantity: number;
-  soldCount: number;
-  benefits: string[];
+  appointmentId: string;
+  caregiverId: string;
+  clientId: string;
+  rating: number;
+  comment?: string;
+  createdAt: Date;
 }
 
-export interface DashboardStats {
-  totalEvents: number;
-  activeEvents: number;
-  totalRegistrations: number;
-  revenue: number;
-  topEventTypes: { type: EventType; count: number }[];
-  recentSales: {
-    eventId: string;
-    eventTitle: string;
-    amount: number;
-    date: string;
-  }[];
+export interface AppointmentGroup {
+  date: string;
+  appointments: Appointment[];
 }

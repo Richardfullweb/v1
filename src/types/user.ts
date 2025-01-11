@@ -1,22 +1,17 @@
-export interface User {
+export interface UserProfile {
   id: string;
-  name: string;
+  fullName: string;
   email: string;
-  password: string;
-  role: 'admin' | 'organizador' | 'usuario';
-  phone: string;
-  location: string;
-  avatar?: string;
-  createdAt: string;
-  status: 'ativo' | 'inativo';
-}
-
-export interface UserFormData {
-  name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-  role: 'admin' | 'organizador' | 'usuario';
-  phone: string;
-  location: string;
+  imageUrl?: string;
+  role: 'client' | 'caregiver';
+  phoneNumber?: string;
+  address?: string;
+  bio?: string;
+  specialties?: string;
+  availability?: {
+    [key: string]: boolean;
+  };
+  createdAt?: any;
+  updatedAt?: any;
+  hourlyRate?: number;
 }

@@ -1,125 +1,153 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Home, Users, Calendar, BarChart2, Megaphone, ShoppingBag, HelpCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth, db } from '../firebase';
+import { signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { UserProfile } from '../types/user';
+import NotificationBell from './NotificationBell/NotificationBell';
 
-export default function Navbar() {
-  const location = useLocation();
-  const isActive = (path: string) => location.pathname === path;
+const Navbar: React.FC = () => {
+  const [user] = useAuthState(auth);
+  const navigate = useNavigate();
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (user) {
+        const docRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setUserProfile(docSnap.data() as UserProfile);
+        }
+      }
+    };
+    fetchUserProfile();
+  }, [user]);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+    }
+  };
 
   return (
-    <nav className="bg-white shadow-lg fixed w-full top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav className="bg-gray-800 fixed w-full z-50">
+      <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between h-16">
-          <div className="flex">
-            <Link to="/" className="flex items-center">
-              <Calendar className="h-8 w-8 text-indigo-600" />
-              <span className="ml-2 text-xl font-bold text-gray-900">EventPro</span>
-            </Link>
-
-            <div className="hidden sm:ml-6 sm:flex sm:space-x-4">
-              <NavLink to="/" icon={Home} text="Home" isActive={isActive('/')} />
-              <NavLink to="/about" icon={HelpCircle} text="Quem Somos" isActive={isActive('/about')} />
-              <NavLink to="/marketing" icon={ShoppingBag} text="Marketing e Vendas" isActive={isActive('/marketing')} />
-              <NavLink to="/promotion" icon={Megaphone} text="Divulgação" isActive={isActive('/promotion')} />
-              <NavLink to="/app/events" icon={Calendar} text="Eventos" isActive={isActive('/app/events')} />
-              <NavLink to="/app/users" icon={Users} text="Usuários" isActive={isActive('/app/users')} />
-              <NavLink to="/app/dashboard" icon={BarChart2} text="Dashboard" isActive={isActive('/app/dashboard')} />
-            </div>
-          </div>
-
-          <div className="hidden sm:flex sm:items-center">
-            <Link
-              to="/login"
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-            >
-              Login
+          {/* Logo */}
+          <div className="flex items-center">
+            <Link to="/" className="text-white text-xl font-bold">
+              CareConnect
             </Link>
           </div>
 
-          {/* Mobile menu button */}
-          <div className="flex items-center sm:hidden">
-            <button
-              type="button"
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
-              aria-controls="mobile-menu"
-              aria-expanded="false"
-            >
-              <span className="sr-only">Open main menu</span>
-              <svg
-                className="block h-6 w-6"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
+          {/* Links de Navegação */}
+          <div className="flex items-center">
+            {user && (
+              <div className="flex items-center space-x-4">
+                {userProfile?.role === 'caregiver' ? (
+                  // Links para cuidadores
+                  <>
+                    <Link 
+                      to="/dashboard" 
+                      className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+                    >
+                      Dashboard
+                    </Link>
+                    <Link 
+                      to="/appointments" 
+                      className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+                    >
+                      Agendamentos
+                    </Link>
+                    <Link 
+                      to="/profile/caregiver" 
+                      className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+                    >
+                      Perfil
+                    </Link>
+                  </>
+                ) : (
+                  // Links para clientes
+                  <>
+                    <Link 
+                      to="/dashboard" 
+                      className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+                    >
+                      Dashboard
+                    </Link>
+                    <Link 
+                      to="/search" 
+                      className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+                    >
+                      Buscar Cuidadores
+                    </Link>
+                    <Link 
+                      to="/favorites" 
+                      className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+                    >
+                      Favoritos
+                    </Link>
+                    <Link 
+                      to="/profile" 
+                      className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+                    >
+                      Perfil
+                    </Link>
+                  </>
+                )}
 
-      {/* Mobile menu */}
-      <div className="sm:hidden" id="mobile-menu">
-        <div className="px-2 pt-2 pb-3 space-y-1">
-          <MobileNavLink to="/" text="Home" isActive={isActive('/')} />
-          <MobileNavLink to="/about" text="Quem Somos" isActive={isActive('/about')} />
-          <MobileNavLink to="/marketing" text="Marketing e Vendas" isActive={isActive('/marketing')} />
-          <MobileNavLink to="/promotion" text="Divulgação" isActive={isActive('/promotion')} />
-          <MobileNavLink to="/app/events" text="Eventos" isActive={isActive('/app/events')} />
-          <MobileNavLink to="/app/users" text="Usuários" isActive={isActive('/app/users')} />
-          <MobileNavLink to="/app/dashboard" text="Dashboard" isActive={isActive('/app/dashboard')} />
+                {/* Notificações e Logout */}
+                <div className="flex items-center pl-4 space-x-4 border-l border-gray-700">
+                  <NotificationBell />
+                  <button
+                    onClick={handleLogout}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                  >
+                    Sair
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {!user && (
+              <div className="flex items-center space-x-4">
+                <Link 
+                  to="/how-it-works" 
+                  className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  Como Funciona
+                </Link>
+                <Link 
+                  to="/professional" 
+                  className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  Profissionais
+                </Link>
+                <Link 
+                  to="/login" 
+                  className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/register"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                >
+                  Cadastrar
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </nav>
   );
-}
+};
 
-interface NavLinkProps {
-  to: string;
-  icon: React.FC<{ className?: string }>;
-  text: string;
-  isActive: boolean;
-}
-
-function NavLink({ to, icon: Icon, text, isActive }: NavLinkProps) {
-  return (
-    <Link
-      to={to}
-      className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-        isActive
-          ? 'text-indigo-600 bg-indigo-50'
-          : 'text-gray-700 hover:text-indigo-600 hover:bg-indigo-50'
-      }`}
-    >
-      <Icon className={`h-5 w-5 mr-1.5 ${isActive ? 'text-indigo-600' : 'text-gray-400'}`} />
-      {text}
-    </Link>
-  );
-}
-
-interface MobileNavLinkProps {
-  to: string;
-  text: string;
-  isActive: boolean;
-}
-
-function MobileNavLink({ to, text, isActive }: MobileNavLinkProps) {
-  return (
-    <Link
-      to={to}
-      className={`block px-3 py-2 rounded-md text-base font-medium ${
-        isActive
-          ? 'text-indigo-600 bg-indigo-50'
-          : 'text-gray-700 hover:text-indigo-600 hover:bg-indigo-50'
-      }`}
-    >
-      {text}
-    </Link>
-  );
-}
+export default Navbar;
