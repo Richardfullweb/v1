@@ -1,31 +1,21 @@
-import { toast as hotToast } from 'react-hot-toast';
+import { useState } from 'react';
 
-export const toast = {
-  success: (message: string) => {
-    hotToast.success(message, {
-      style: {
-        background: '#10B981',
-        color: '#fff',
-      },
-      duration: 3000,
-    });
-  },
-  error: (message: string) => {
-    hotToast.error(message, {
-      style: {
-        background: '#EF4444',
-        color: '#fff',
-      },
-      duration: 3000,
-    });
-  },
-  info: (message: string) => {
-    hotToast(message, {
-      style: {
-        background: '#3B82F6',
-        color: '#fff',
-      },
-      duration: 3000,
-    });
-  },
+type Toast = {
+  title: string;
+  description: string;
+  variant: 'default' | 'destructive' | 'success';
+};
+
+export const useToast = () => {
+  const [toast, setToast] = useState<Toast | null>(null);
+
+  const showToast = (toast: Toast) => {
+    setToast(toast);
+    setTimeout(() => setToast(null), 5000);
+  };
+
+  return {
+    toast,
+    showToast,
+  };
 };

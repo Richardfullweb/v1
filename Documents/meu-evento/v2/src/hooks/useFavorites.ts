@@ -12,6 +12,8 @@ interface CaregiverDetails {
   specialties?: string[];
   bio?: string;
   photoURL?: string;
+  hourlyRate?: number;
+  description?: string;
 }
 
 const useFavorites = () => {
@@ -43,12 +45,14 @@ const useFavorites = () => {
                 const data = caregiverDoc.data();
                 return {
                   uid: caregiverDoc.id,
-                  name: data.name || 'Nome não disponível',
+                  name: data.fullName || data.name || 'Nome não disponível',
                   email: data.email,
                   role: data.role,
                   specialties: data.specialties || [],
                   bio: data.bio || '',
-                  photoURL: data.photoURL || ''
+                  photoURL: data.photoURL || '',
+                  hourlyRate: data.hourlyRate || 0,
+                  description: data.description || ''
                 } as CaregiverDetails;
               }
               return null;
@@ -93,12 +97,14 @@ const useFavorites = () => {
         const data = caregiverDoc.data();
         const newCaregiverDetails: CaregiverDetails = {
           uid: caregiverDoc.id,
-          name: data.name || 'Nome não disponível',
+          name: data.fullName || data.name || 'Nome não disponível',
           email: data.email,
           role: data.role,
           specialties: data.specialties || [],
           bio: data.bio || '',
-          photoURL: data.photoURL || ''
+          photoURL: data.photoURL || '',
+          hourlyRate: data.hourlyRate || 0,
+          description: data.description || ''
         };
         setFavorites(prev => [...prev, newCaregiverDetails]);
       }

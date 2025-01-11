@@ -5,6 +5,9 @@ import {
     collection,
     addDoc,
     serverTimestamp,
+    query,
+    where,
+    getDocs,
 } from 'firebase/firestore';
 import { useAvailability } from '../../hooks/useAvailability';
 import { TimeSlot } from '../../types/appointment';
@@ -68,32 +71,64 @@ const HireRequestForm: React.FC<HireRequestFormProps> = ({
         setSuccess('');
 
         try {
-            // Create the hire request
-            await addDoc(collection(db, 'hireRequests'), {
+            // Verificar novamente a disponibilidade antes de criar o agendamento
+            const hireRequestsRef = collection(db, 'hireRequests');
+            const conflictQuery = query(
+                hireRequestsRef,
+                where('caregiverId', '==', caregiverId),
+                where('date', '==', selectedDate),
+                where('startTime', '==', requestDetails.startTime),
+                where('status', 'in', ['pending', 'accepted'])
+            );
+
+            const conflictSnapshot = await getDocs(conflictQuery);
+            
+            if (!conflictSnapshot.empty) {
+                setError('Este horário já foi agendado. Por favor, escolha outro horário.');
+                setLoading(false);
+                return;
+            }
+
+            // Criar a data corretamente
+            const [year, month, day] = selectedDate.split('-');
+            const appointmentDate = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day)));
+            appointmentDate.setHours(parseInt(requestDetails.startTime.split(':')[0]));
+
+            // Criar o agendamento
+            const hireRequestData = {
                 caregiverId,
                 clientId: user.uid,
-                date: selectedDate,
-                ...requestDetails,
-                createdAt: serverTimestamp(),
-                status: 'pending'
-            });
+                date: appointmentDate,
+                startTime: requestDetails.startTime,
+                endTime: requestDetails.endTime,
+                notes: requestDetails.notes,
+                status: 'pending',
+                createdAt: serverTimestamp()
+            };
 
-            setSuccess('Request sent successfully!');
+            const docRef = await addDoc(collection(db, 'hireRequests'), hireRequestData);
+
+            setSuccess('Solicitação enviada com sucesso!');
             setTimeout(() => {
                 onClose();
             }, 2000);
         } catch (err) {
-            setError('Failed to send request');
+            setError('Falha ao enviar solicitação. Por favor, tente novamente.');
             console.error('Error submitting request:', err);
         } finally {
             setLoading(false);
         }
     };
 
+    // Definir a data mínima como hoje
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const minDate = today.toISOString().split('T')[0];
+
     return (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex justify-center items-center">
             <div className="bg-white p-6 rounded-lg shadow-md max-w-md w-full">
-                <h3 className="text-xl font-semibold mb-4">Request a Caregiver</h3>
+                <h3 className="text-xl font-semibold mb-4">Solicitar Cuidador</h3>
                 {(error || slotsError) && (
                     <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
                         {error || slotsError}
@@ -107,11 +142,11 @@ const HireRequestForm: React.FC<HireRequestFormProps> = ({
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Select Date
+                            Selecione a Data
                         </label>
                         <input
                             type="date"
-                            min={new Date().toISOString().split('T')[0]}
+                            min={minDate}
                             value={selectedDate}
                             onChange={handleDateChange}
                             className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

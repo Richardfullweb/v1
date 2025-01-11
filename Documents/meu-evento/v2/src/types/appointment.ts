@@ -1,24 +1,20 @@
 export interface Appointment {
   id: string;
-  clientId: string;
   caregiverId: string;
-  clientName?: string;
-  caregiverName?: string;
-  date: any; // Firestore Timestamp
-  duration: number;
-  status: 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'completed';
-  description?: string;
-  price?: number;
-  address?: string;
+  clientId: string;
+  date: Date; // Agora apenas Date
+  startTime: string;
+  endTime: string;
+  status: string;
   notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  caregiverName?: string;
+  caregiverImageUrl?: string;
+  serviceType?: string;
+  price?: number;
   rated?: boolean;
-  rating?: {
-    rating: number;
-    comment?: string;
-    createdAt: any;
-  };
-  createdAt: any;
-  updatedAt: any;
+  totalAmount?: number;
 }
 
 export interface TimeSlot {

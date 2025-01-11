@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { UserProfile } from '../types/user';
 import { useNavigate } from 'react-router-dom';
+import { validateProfile } from '../utils/profileValidation';
+import { useToast } from '../components/ui/toast';
 
 const defaultProfile: Partial<UserProfile> = {
   fullName: '',
@@ -12,7 +14,6 @@ const defaultProfile: Partial<UserProfile> = {
   bio: '',
   role: 'client',
   specialties: '',
-  hourlyRate: 0,
   availability: {
     monday: false,
     tuesday: false,
@@ -116,29 +117,32 @@ const Profile = () => {
       <div className="bg-white shadow-md rounded-lg p-6">
         <h2 className="text-2xl font-bold mb-4">Complete seu perfil para que possamos atendê-lo melhor.</h2>
         {profile.role === 'caregiver' ? (
-          <p className="text-sm text-gray-600 mb-4">
-            Siga os passos abaixo para preencher seu perfil:
+          <div>
+            <p className="text-sm text-gray-600 mb-4">
+              Siga os passos abaixo para preencher seu perfil:
+            </p>
             <ol className="list-decimal list-inside text-gray-700">
               <li><strong>Nome Completo:</strong> Preencha seu nome completo.</li>
               <li><strong>Número de Telefone:</strong> Insira seu número de telefone.</li>
               <li><strong>Endereço:</strong> Forneça seu endereço completo.</li>
               <li><strong>Biografia:</strong> Escreva uma breve biografia sobre você.</li>
               <li><strong>Profissão:</strong> Selecione sua especialidade.</li>
-              <li><strong>Taxa Horária:</strong> Insira sua taxa horária.</li>
               <li><strong>Disponibilidade:</strong> Marque os dias da semana em que você está disponível.</li>
               <li><strong>Salvar as Alterações:</strong> Clique no botão "Salvar".</li>
             </ol>
-          </p>
+          </div>
         ) : (
-          <p className="text-sm text-gray-600 mb-4">
-            Siga os passos abaixo para preencher seu perfil:
+          <div>
+            <p className="text-sm text-gray-600 mb-4">
+              Siga os passos abaixo para preencher seu perfil:
+            </p>
             <ol className="list-decimal list-inside text-gray-700">
               <li><strong>Nome Completo:</strong> Preencha seu nome completo.</li>
               <li><strong>Número de Telefone:</strong> Insira seu número de telefone.</li>
               <li><strong>Endereço:</strong> Forneça seu endereço completo.</li>
               <li><strong>Salvar as Alterações:</strong> Clique no botão "Salvar".</li>
             </ol>
-          </p>
+          </div>
         )}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold">Profile</h2>
@@ -222,23 +226,6 @@ const Profile = () => {
               </select>
             </div>
 
-            {profile.role === 'caregiver' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                Taxa horária ($)
-                </label>
-                <input
-                  type="number"
-                  name="hourlyRate"
-                  value={profile.hourlyRate}
-                  onChange={handleChange}
-                  disabled={!isEditing}
-                  min="0"
-                  step="0.01"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-                />
-              </div>
-            )}
           </div>
 
           <div>
@@ -320,27 +307,18 @@ const Profile = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                 Disponibilidade
                 </label>
-                <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
-                  {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {Object.entries(profile.availability || {}).map(([day, checked]) => (
                     <label key={day} className="flex items-center space-x-2">
                       <input
                         type="checkbox"
-                        name={day}
-                        checked={profile.availability ? profile.availability[day] : false}
+                        name={`availability.${day}`}
+                        checked={checked}
                         onChange={handleChange}
                         disabled={!isEditing}
-                        className="rounded text-blue-500 focus:ring-blue-500"
+                        className="rounded text-blue-600 focus:ring-blue-500"
                       />
-                      <span className="capitalize">
-                        {day === 'monday' ? 'segunda-feira' :
-                         day === 'tuesday' ? 'terça-feira' :
-                         day === 'wednesday' ? 'quarta-feira' :
-                         day === 'thursday' ? 'quinta-feira' :
-                         day === 'friday' ? 'sexta-feira' :
-                         day === 'saturday' ? 'sábado' :
-                         day === 'sunday' ? 'domingo' :
-                         day}
-                      </span>
+                      <span className="text-sm text-gray-700 capitalize">{day}</span>
                     </label>
                   ))}
                 </div>

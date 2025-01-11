@@ -62,16 +62,15 @@ export const useAvailability = (caregiverId: string, selectedDate: string) => {
                 const q = query(
                     requestsRef,
                     where('caregiverId', '==', caregiverId),
-                    where('date', '==', selectedDate),
+                    where('status', 'in', ['pending', 'accepted'])
                 );
-                
-                console.log("Query sendo executada:", q, "caregiverId:", caregiverId, "selectedDate:", selectedDate);
 
                 const querySnapshot = await getDocs(q);
                 const bookedSlots = querySnapshot.docs
                     .filter(doc => {
-                        const status = doc.data().status;
-                        return status === 'pending' || status === 'accepted';
+                        const data = doc.data();
+                        const bookingDate = data.date.toDate().toISOString().split('T')[0];
+                        return bookingDate === selectedDate;
                     })
                     .map(doc => ({
                         startTime: doc.data().startTime,
@@ -80,14 +79,18 @@ export const useAvailability = (caregiverId: string, selectedDate: string) => {
 
                 // Gerar slots disponíveis
                 const slots = DEFAULT_SLOTS.map(slot => {
+                    const slotStartMinutes = timeToMinutes(slot.start);
+                    const slotEndMinutes = timeToMinutes(slot.end);
+
                     const isBooked = bookedSlots.some(booking => {
                         const bookingStartMinutes = timeToMinutes(booking.startTime);
                         const bookingEndMinutes = timeToMinutes(booking.endTime);
-                        const slotStartMinutes = timeToMinutes(slot.start);
-                        const slotEndMinutes = timeToMinutes(slot.end);
 
+                        // Verifica se há sobreposição de horários
                         return (
-                            (slotStartMinutes < bookingEndMinutes && slotEndMinutes > bookingStartMinutes)
+                            (slotStartMinutes >= bookingStartMinutes && slotStartMinutes < bookingEndMinutes) ||
+                            (slotEndMinutes > bookingStartMinutes && slotEndMinutes <= bookingEndMinutes) ||
+                            (slotStartMinutes <= bookingStartMinutes && slotEndMinutes >= bookingEndMinutes)
                         );
                     });
 
@@ -97,14 +100,8 @@ export const useAvailability = (caregiverId: string, selectedDate: string) => {
                         available: !isBooked
                     };
                 });
-                 const filteredSlots = slots.filter(slot =>
-                        !bookedSlots.some(booking =>
-                            timeToMinutes(slot.startTime) < timeToMinutes(booking.endTime) &&
-                            timeToMinutes(slot.endTime) > timeToMinutes(booking.startTime)
-                        )
-                );
-                
-                setAvailableSlots(filteredSlots);
+
+                setAvailableSlots(slots);
             } catch (err) {
                 console.error('Erro ao buscar disponibilidade:', err);
                 setError('Erro ao carregar disponibilidade. Por favor, tente novamente.');

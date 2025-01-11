@@ -1,28 +1,17 @@
 export interface UserProfile {
   id: string;
-  name: string;
+  fullName: string;
   email: string;
-  photoURL?: string;
-  type: 'client' | 'caregiver';
-  phone?: string;
+  imageUrl?: string;
+  role: 'client' | 'caregiver';
+  phoneNumber?: string;
   address?: string;
   bio?: string;
-  specialties?: string[];
-  hourlyRate?: number;
+  specialties?: string;
   availability?: {
-    [key: string]: {
-      start: string;
-      end: string;
-    }[];
-  };
-  experience?: string;
-  education?: string;
-  languages?: string[];
-  certifications?: string[];
-  rating?: {
-    average: number;
-    total: number;
+    [key: string]: boolean;
   };
   createdAt?: any;
   updatedAt?: any;
+  hourlyRate?: number;
 }

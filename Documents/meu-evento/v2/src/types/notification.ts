@@ -1,42 +1,35 @@
+// src/types/notification.ts
+import { Timestamp } from 'firebase/firestore';
+
 export type NotificationType = 
-  | 'appointment_request'
-  | 'appointment_accepted'
-  | 'appointment_rejected'
-  | 'appointment_completed'
-  | 'appointment_evaluation'
-  | 'message'
-  | 'payment'
-  | 'system';
-
-export type NotificationPriority = 'high' | 'medium' | 'low';
-
-export type NotificationStatus = 'read' | 'unread';
-
-export type NotificationChannel = 'in_app' | 'email' | 'push';
+  | 'new_appointment_request'      // Cliente solicita -> Cuidador recebe
+  | 'appointment_accepted'         // Cuidador aceita -> Cliente recebe
+  | 'appointment_rejected'         // Cuidador rejeita -> Cliente recebe
+  | 'payment_received'            // Cliente paga -> Cuidador recebe
+  | 'new_rating'                  // Cliente avalia -> Cuidador recebe
+  | 'service_completed'           // Mensagem de agradecimento -> Ambos recebem
 
 export interface NotificationData {
-  appointmentId?: string;
-  patientName?: string;
+  appointmentId: string;
   date?: Date;
-  description?: string;
-  price?: number;
-  duration?: number;
-  address?: string;
-  messageId?: string;
-  paymentId?: string;
-  [key: string]: any;
+  startTime?: string;
+  endTime?: string;
+  caregiverName?: string;
+  clientName?: string;
+  status?: string;
+  amount?: number;
+  rating?: number;
+  comment?: string;
 }
 
 export interface Notification {
   id?: string;
-  type: NotificationType;
+  userId: string;
+  type: NotificationType | string;
   title: string;
   message: string;
-  userId: string;
-  status: NotificationStatus;
-  priority: NotificationPriority;
-  channel: NotificationChannel;
-  data: NotificationData;
-  createdAt: any; // Firestore Timestamp
-  readAt?: any; // Firestore Timestamp
+  data: NotificationData | Record<string, any>;
+  priority?: 'low' | 'medium' | 'high';
+  read?: boolean;
+  createdAt?: Timestamp;
 }

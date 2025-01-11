@@ -19,7 +19,7 @@ import React from 'react';
               <p className="mb-4">Encontre cuidadores qualificados em sua área</p>
               {!user && (
                 <Link
-                  to="/register"
+                  to="/register/client"
                   className="inline-block bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600"
                 >
                   Comece agora
@@ -32,7 +32,7 @@ import React from 'react';
               <p className="mb-4">Conecte-se com clientes e cresça sua prática</p>
               {!user && (
                 <Link
-                  to="/register"
+                  to="/register/caregiver"
                   className="inline-block bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600"
                 >
                   Junte-se agora

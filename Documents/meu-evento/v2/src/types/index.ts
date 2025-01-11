@@ -1,3 +1,11 @@
+export type AppointmentStatus = 
+  | 'pending'    // Cliente solicitou
+  | 'accepted'   // Cuidador aceitou
+  | 'paid'       // Cliente pagou
+  | 'completed'  // Serviço prestado
+  | 'rated'      // Cliente avaliou
+  | 'cancelled'; // Cancelado
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -22,13 +30,22 @@ export interface UserProfile {
 
 export interface Appointment {
   id: string;
-  caregiverId: string;
   clientId: string;
+  caregiverId: string;
+  caregiverName?: string;
   date: string;
   startTime: string;
   endTime: string;
-  status: 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'completed' | 'confirmed' | 'paid';
+  status: AppointmentStatus;
   amount?: number;
+  notes?: string;
+  createdAt: any;
+  updatedAt: any;
+  paymentDate?: any;
+  completedDate?: any;
+  ratingDate?: any;
+  rating?: number;
+  ratingComment?: string;
 }
 
 export interface TimeSlot {

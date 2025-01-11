@@ -1,178 +1,176 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { Bell } from 'lucide-react';
 import { auth } from '../../firebase';
-import { formatDistanceToNow } from 'date-fns';
+import * as NotificationService from '../../services/NotificationService';
+import { BellIcon } from '@heroicons/react/24/outline';
+import { Notification } from '../../types/notification';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { query, collection, where, orderBy } from 'firebase/firestore';
-import { db } from '../../firebase';
-import { NotificationService, Notification } from '../../services/NotificationService';
 
-export default function NotificationBell() {
+interface NotificationBellProps {
+  count: number;
+  onClick: () => void;
+}
+
+export default function NotificationBell({ count, onClick }: NotificationBellProps) {
   const [user] = useAuthState(auth);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
-  const [hasNewNotification, setHasNewNotification] = useState(false);
-  const menuRef = React.useRef<HTMLDivElement>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!user) return;
 
-    // Configurar listener para notificações em tempo real
-    const q = query(
-      collection(db, 'notifications'),
-      where('userId', '==', user.uid),
-      where('channel', '==', 'in_app'),
-      orderBy('createdAt', 'desc')
-    );
-
+    console.log('Iniciando subscription de notificações para:', user.uid);
     const unsubscribe = NotificationService.subscribeToNotifications(
-      q,
-      (updatedNotifications) => {
-        setNotifications(updatedNotifications);
-        const newUnreadCount = updatedNotifications.filter(n => n.status === 'unread').length;
-        if (newUnreadCount > unreadCount) {
-          setHasNewNotification(true);
-          setTimeout(() => setHasNewNotification(false), 1000);
-        }
-        setUnreadCount(newUnreadCount);
+      user.uid,
+      (notifications) => {
+        console.log('Notificações recebidas:', notifications);
+        setNotifications(notifications);
+        setUnreadCount(notifications.filter(n => !n.read).length);
       }
     );
 
-    return () => unsubscribe();
-  }, [user, unreadCount]);
-
-  React.useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      console.log('Limpando subscription de notificações');
+      unsubscribe();
     };
-  }, []);
+  }, [user]);
 
-  const handleMarkAsRead = async (notificationId: string) => {
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!user || notification.read) return;
+    
     try {
-      await NotificationService.markAsRead(notificationId);
-      setNotifications(prev => prev.map(n => 
-        n.id === notificationId ? { ...n, status: 'read' } : n
-      ));
+      console.log('Marcando notificação como lida:', notification.id);
+      await NotificationService.markAsRead(notification.id);
+      
+      // Atualiza localmente o estado das notificações
+      setNotifications(prevNotifications =>
+        prevNotifications.map(n =>
+          n.id === notification.id ? { ...n, read: true } : n
+        )
+      );
+      
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error('Erro ao marcar notificação como lida:', error);
     }
   };
 
-  const handleMarkAllAsRead = async () => {
+  const handleClearAll = async () => {
     if (!user) return;
+    
     try {
+      console.log('Marcando todas as notificações como lidas');
       await NotificationService.markAllAsRead(user.uid);
-      setNotifications(prev => prev.map(n => ({ ...n, status: 'read' })));
+      
+      // Atualiza localmente o estado das notificações
+      setNotifications(prevNotifications =>
+        prevNotifications.map(n => ({ ...n, read: true }))
+      );
+      
       setUnreadCount(0);
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+      console.error('Erro ao marcar todas as notificações como lidas:', error);
     }
   };
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'appointment_request':
-        return '📅';
-      case 'appointment_accepted':
-        return '✅';
-      case 'appointment_rejected':
-        return '❌';
-      case 'appointment_completed':
-        return '🎉';
-      case 'appointment_evaluation':
-        return '⭐';
-      case 'message':
-        return '💬';
-      case 'payment':
-        return '💰';
+      case 'payment_completed':
+      case 'payment_pending':
+      case 'payment_rejected':
+        return (
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
       default:
-        return '🔔';
+        return (
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        );
     }
   };
 
-  if (!user) return null;
+  const getNotificationColor = (type: string, priority: string) => {
+    if (type.includes('payment')) {
+      switch (priority) {
+        case 'high':
+          return 'text-red-500';
+        case 'medium':
+          return 'text-yellow-500';
+        default:
+          return 'text-green-500';
+      }
+    }
+    return 'text-blue-500';
+  };
 
   return (
-    <div className="relative" ref={menuRef}>
-      <button
+    <div className="relative inline-block">
+      <button 
         onClick={() => setIsOpen(!isOpen)}
-        className={`relative p-2 text-gray-600 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-full ${
-          hasNewNotification ? 'animate-bounce' : ''
-        }`}
+        className="relative p-2 rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white"
       >
-        <Bell className="h-6 w-6" />
+        <BellIcon className="h-6 w-6 text-white" />
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 -mt-1 -mr-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+          <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">
             {unreadCount}
           </span>
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">Notificações</h3>
-              {unreadCount > 0 && (
+        <div className="absolute right-0 mt-2 w-80 bg-gray-800 rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+          <div className="p-2">
+            <div className="flex justify-between items-center mb-2 p-2">
+              <h3 className="text-lg font-medium text-white">Notificações</h3>
+              {notifications.some(n => !n.read) && (
                 <button
-                  onClick={handleMarkAllAsRead}
-                  className="text-sm text-blue-600 hover:text-blue-800"
+                  onClick={handleClearAll}
+                  className="text-sm text-blue-400 hover:text-blue-300"
                 >
                   Marcar todas como lidas
                 </button>
               )}
             </div>
-          </div>
-
-          <div className="max-h-96 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">
-                Nenhuma notificação
-              </div>
-            ) : (
-              notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors duration-200 ${
-                    notification.status === 'unread' ? 'bg-blue-50' : ''
-                  }`}
-                  onClick={() => notification.id && handleMarkAsRead(notification.id)}
-                >
-                  <div className="flex items-start space-x-3">
-                    <div className="flex-shrink-0 text-xl">
-                      {getNotificationIcon(notification.type)}
-                    </div>
-                    <div className="flex-1">
-                      <p className={`font-medium text-gray-900 ${notification.status === 'unread' ? 'font-bold' : ''}`}>
-                        {notification.title}
-                      </p>
-                      <p className="text-sm text-gray-600">{notification.message}</p>
-                      {notification.createdAt && (
-                        <p className="mt-1 text-xs text-gray-500">
-                          {formatDistanceToNow(notification.createdAt.toDate(), {
-                            addSuffix: true,
-                            locale: ptBR,
-                          })}
-                        </p>
-                      )}
-                    </div>
-                    {notification.priority === 'high' && (
-                      <span className="h-2 w-2 bg-red-500 rounded-full mt-2" />
-                    )}
-                  </div>
+            
+            <div className="max-h-96 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="text-center py-4 text-gray-400">
+                  Nenhuma notificação
                 </div>
-              ))
-            )}
+              ) : (
+                notifications.map((notification) => (
+                  <div
+                    key={notification.id}
+                    onClick={() => handleNotificationClick(notification)}
+                    className={`p-4 cursor-pointer hover:bg-gray-700 ${
+                      !notification.read ? 'bg-gray-600' : ''
+                    }`}
+                  >
+                    <div className="flex items-start">
+                      <div className={`flex-shrink-0 ${getNotificationColor(notification.type, notification.priority)}`}>
+                        {getNotificationIcon(notification.type)}
+                      </div>
+                      <div className="ml-3 flex-1">
+                        <p className="text-sm font-medium text-white">
+                          {notification.title}
+                        </p>
+                        <p className="mt-1 text-sm text-gray-400">
+                          {notification.message}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {notification.createdAt && format(notification.createdAt.toDate(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}

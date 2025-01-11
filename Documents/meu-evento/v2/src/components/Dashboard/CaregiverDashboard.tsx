@@ -8,27 +8,32 @@ import {
   orderBy,
   getDocs,
   updateDoc,
-  doc,
+  doc as firestoreDoc,
   serverTimestamp,
   getDoc,
   Timestamp,
   increment
 } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
-import Avatar from '../common/Avatar';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import * as NotificationService from '../../services/NotificationService';
 
 interface Appointment {
   id: string;
   clientId: string;
   caregiverId: string;
-  date: Date;
+  date: Timestamp;
   startTime: string;
   endTime: string;
-  status: 'accept' | 'reject' | 'complete' | 'pending' | 'accepted' | 'rejected';
+  status: 'accept' | 'reject' | 'complete' | 'pending' | 'accepted' | 'rejected' | 'paid' | 'completed';
   notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
   clientName?: string;
+  clientImageUrl?: string;
+  totalAmount?: number;
+  caregiverAmount?: number;
 }
 
 interface AppointmentGroup {
@@ -37,6 +42,40 @@ interface AppointmentGroup {
   completed: Appointment[];
   cancelled: Appointment[];
 }
+
+interface StatsCardProps {
+  title: string;
+  value: number | string;
+  subtitle?: string;
+}
+
+const StatsCard = ({ title, value, subtitle }: StatsCardProps) => {
+  const formatValue = (value: number | string) => {
+    if (typeof value === 'number') {
+      if (title === 'Ganhos Totais') {
+        return `R$ ${value.toFixed(2)}`;
+      }
+      return value.toString();
+    }
+    return value;
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+      <p className={`mt-2 text-3xl font-bold ${
+        typeof value === 'number' && title === 'Ganhos Totais' 
+          ? 'text-green-600' 
+          : 'text-blue-600'
+      }`}>
+        {formatValue(value)}
+      </p>
+      {subtitle && (
+        <p className="mt-1 text-sm text-gray-500">{subtitle}</p>
+      )}
+    </div>
+  );
+};
 
 const CaregiverDashboard: React.FC = () => {
   const [user, authLoading, authError] = useAuthState(auth);
@@ -48,196 +87,171 @@ const CaregiverDashboard: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedTab, setSelectedTab] = useState<keyof AppointmentGroup>('pending');
+  const [activeTab, setActiveTab] = useState<keyof AppointmentGroup>('pending');
   const [stats, setStats] = useState({
     totalEarnings: 0,
     completedAppointments: 0,
     averageRating: 0,
     totalReviews: 0
   });
+  const [profileComplete, setProfileComplete] = useState(false);
 
   useEffect(() => {
-    console.log('Auth state:', { 
-      userId: user?.uid, 
-      isLoading: authLoading, 
-      error: authError 
-    });
-
-    if (!user) {
-      console.log('No user found, returning');
-      return;
-    }
-    
-    const loadDashboardData = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        console.log('Starting to load dashboard data');
-        
-        // Primeiro verificar se o usuário é um cuidador
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        console.log('User document:', userDoc.data());
-        
-        if (!userDoc.exists()) {
-          throw new Error('Usuário não encontrado');
-        }
-
-        const userData = userDoc.data();
-        if (userData.role !== 'caregiver') {
-          throw new Error('Usuário não é um cuidador');
-        }
-
-        // Carregar dados em paralelo
-        console.log('Loading appointments and stats');
-        const [appointmentsResult, statsResult] = await Promise.all([
-          fetchAppointments().catch(err => {
-            console.error('Error in fetchAppointments:', err);
-            throw new Error('Falha ao carregar agendamentos: ' + err.message);
-          }),
-          fetchStats().catch(err => {
-            console.error('Error in fetchStats:', err);
-            throw new Error('Falha ao carregar estatísticas: ' + err.message);
-          })
-        ]);
-
-        console.log('Dashboard data loaded successfully');
-      } catch (err) {
-        console.error('Error in loadDashboardData:', err);
-        setError(err instanceof Error ? err.message : 'Erro ao carregar dados do dashboard');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadDashboardData();
+    if (!user) return;
+    loadAppointments();
+    loadStats();
+    checkProfileCompletion();
   }, [user]);
 
-  const fetchStats = async () => {
+  const checkProfileCompletion = async () => {
     if (!user) return;
-    console.log('Fetching stats for user:', user.uid);
     
     try {
-      // Buscar dados do cuidador
-      const caregiverRef = doc(db, 'users', user.uid);
-      const caregiverDoc = await getDoc(caregiverRef);
-      
-      if (!caregiverDoc.exists()) {
-        console.error('Caregiver document not found');
-        throw new Error('Perfil de cuidador não encontrado');
+      const userDoc = await getDoc(firestoreDoc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const requiredFields = ['fullName', 'phoneNumber', 'address', 'bio', 'hourlyRate'];
+        const isComplete = requiredFields.every(field => userData[field]);
+        setProfileComplete(isComplete);
       }
-
-      const caregiverData = caregiverDoc.data();
-      console.log('Caregiver data:', caregiverData);
-
-      // Buscar avaliações
-      const reviewsQuery = query(
-        collection(db, 'ratings'),
-        where('caregiverId', '==', user.uid)
-      );
-      const reviewsSnapshot = await getDocs(reviewsQuery);
-      console.log('Reviews count:', reviewsSnapshot.size);
-      
-      let totalRating = 0;
-      reviewsSnapshot.forEach(doc => {
-        const review = doc.data();
-        totalRating += review.rating || 0;
-      });
-
-      const newStats = {
-        totalEarnings: caregiverData.totalEarnings || 0,
-        completedAppointments: caregiverData.completedAppointments || 0,
-        averageRating: reviewsSnapshot.size > 0 ? totalRating / reviewsSnapshot.size : 0,
-        totalReviews: reviewsSnapshot.size
-      };
-      
-      console.log('Calculated stats:', newStats);
-      setStats(newStats);
-    } catch (err) {
-      console.error('Error fetching stats:', err);
-      throw err;
+    } catch (error) {
+      console.error('Erro ao verificar perfil:', error);
     }
   };
 
-  const fetchAppointments = async () => {
-    if (!user) return;
-    console.log('Fetching appointments for user:', user.uid);
+  const calculateTotalAmount = (startTime: string, endTime: string, hourlyRate: number) => {
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const [endHour, endMinute] = endTime.split(':').map(Number);
     
+    const startDate = new Date(2000, 0, 1, startHour, startMinute);
+    const endDate = new Date(2000, 0, 1, endHour, endMinute);
+    
+    const diffInHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+    return hourlyRate * diffInHours;
+  };
+
+  const loadStats = async () => {
+    if (!user) return;
+
     try {
-      const appointmentsQuery = query(
-        collection(db, 'hireRequests'),
+      console.log('Carregando estatísticas para:', user.uid);
+      
+      const appointmentsRef = collection(db, 'hireRequests');
+      const earningsQuery = query(
+        appointmentsRef,
         where('caregiverId', '==', user.uid),
-        orderBy('date', 'desc')
+        where('status', 'in', ['completed', 'paid'])
       );
 
-      console.log('Executing appointments query');
-      const querySnapshot = await getDocs(appointmentsQuery);
-      console.log('Found appointments:', querySnapshot.size);
+      const earningsSnap = await getDocs(earningsQuery);
+      console.log('Atendimentos para cálculo de ganhos:', earningsSnap.size);
       
-      const appointmentGroups: AppointmentGroup = {
-        pending: [],
-        upcoming: [],
-        completed: [],
-        cancelled: []
-      };
+      let totalBruto = 0;
+      let completedCount = 0;
 
-      // Data limite para filtrar (30 dias atrás)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0]; // Formato YYYY-MM-DD
-
-      // Criar um array de promessas para processar os agendamentos
-      const appointmentPromises = querySnapshot.docs.map(async (doc) => {
+      for (const doc of earningsSnap.docs) {
         const data = doc.data();
-        console.log('Appointment Data:', {
-          allData: data,
-          possibleNameFields: {
-            clientName: data.clientName,
-            name: data.name,
-            client_name: data.client_name,
-            userName: data.userName,
-            user_name: data.user_name
-          }
-        });
-        console.log('Processing appointment data:', data);
+        console.log('Dados do atendimento:', data);
+        
+        if (data.caregiverAmount) {
+          console.log('Adicionando ao total bruto:', data.caregiverAmount);
+          totalBruto += Number(data.caregiverAmount);
+        }
+        completedCount++;
+      }
+
+      console.log('Total bruto calculado:', totalBruto);
+      
+      // Aplicar desconto de 20% para a plataforma
+      const totalEarnings = totalBruto * 0.8;
+      console.log('Total líquido após desconto de 20%:', totalEarnings);
+
+      console.log('Estatísticas calculadas:', {
+        totalEarnings,
+        completedCount
+      });
+
+      setStats({
+        totalEarnings,
+        completedAppointments: completedCount,
+        averageRating: 0,
+        totalReviews: 0
+      });
+
+    } catch (error) {
+      console.error('Erro ao carregar estatísticas:', error);
+    }
+  };
+
+  const loadAppointments = async () => {
+    if (!user) return;
+    setLoading(true);
+    setError('');
+
+    try {
+      console.log('Carregando agendamentos para:', user.uid);
+      
+      const appointmentsRef = collection(db, 'hireRequests');
+      const q = query(
+        appointmentsRef,
+        where('caregiverId', '==', user.uid)
+      );
+
+      const querySnapshot = await getDocs(q);
+      console.log('Agendamentos encontrados:', querySnapshot.size);
+      
+      const appointmentsList: Appointment[] = [];
+
+      for (const doc of querySnapshot.docs) {
+        const data = doc.data();
+        console.log('Dados do agendamento:', data);
+        
+        // Buscar informações do cliente
+        const clientRef = firestoreDoc(db, 'users', data.clientId);
+        const clientSnap = await getDoc(clientRef);
+        const clientData = clientSnap.data();
 
         const appointment: Appointment = {
           id: doc.id,
-          caregiverId: data.caregiverId,
           clientId: data.clientId,
+          caregiverId: data.caregiverId,
           date: data.date,
           startTime: data.startTime,
           endTime: data.endTime,
-          status: data.status || 'pending',
-          notes: data.notes,
-          createdAt: data.createdAt?.toDate?.() || new Date(),
-          updatedAt: data.updatedAt?.toDate?.() || new Date(),
-          clientName: data.clientName || 'Cliente' // Pegando o nome diretamente do documento
+          status: data.status,
+          notes: data.notes || '',
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt || data.createdAt,
+          clientName: clientData?.fullName || 'Cliente',
+          clientImageUrl: clientData?.imageUrl,
+          totalAmount: data.totalAmount,
+          caregiverAmount: data.caregiverAmount
         };
 
-        // Filtrar agendamentos antigos
-        if (appointment.date >= thirtyDaysAgoStr) {
-          const status = appointment.status.toLowerCase();
-          if (status === 'pending') {
-            appointmentGroups.pending.push(appointment);
-          } else if (status === 'accepted') {
-            appointmentGroups.upcoming.push(appointment);
-          } else if (status === 'completed') {
-            appointmentGroups.completed.push(appointment);
-          } else if (status === 'cancelled' || status === 'rejected') {
-            appointmentGroups.cancelled.push(appointment);
-          }
-        }
-        return appointment;
-      });
+        appointmentsList.push(appointment);
+      }
 
-      // Aguardar todas as promessas serem resolvidas
-      await Promise.all(appointmentPromises);
+      console.log('Lista de agendamentos:', appointmentsList);
 
-      console.log('Grouped appointments:', appointmentGroups);
+      const now = new Date();
+      const appointmentGroups: AppointmentGroup = {
+        pending: appointmentsList.filter(a => a.status === 'pending'),
+        upcoming: appointmentsList.filter(a => 
+          a.status === 'accepted' && 
+          a.date.toDate() > now
+        ),
+        completed: appointmentsList.filter(a => a.status === 'completed'),
+        cancelled: appointmentsList.filter(a => a.status === 'rejected')
+      };
+
+      console.log('Grupos de agendamentos:', appointmentGroups);
       setAppointments(appointmentGroups);
-    } catch (err) {
-      console.error('Error fetching appointments:', err);
-      throw err;
+
+    } catch (error) {
+      console.error('Erro ao carregar agendamentos:', error);
+      setError('Falha ao carregar agendamentos');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -245,29 +259,58 @@ const CaregiverDashboard: React.FC = () => {
     if (!user) return;
     
     try {
-      const appointmentRef = doc(db, 'hireRequests', appointmentId);
+      console.log('Atualizando agendamento:', appointmentId, action);
+      
+      const appointmentRef = firestoreDoc(db, 'hireRequests', appointmentId);
       const appointmentDoc = await getDoc(appointmentRef);
-      const appointmentData = appointmentDoc.data();
-      const appointmentValue = appointmentData?.value || 0; // Supondo que o valor do atendimento está armazenado aqui
+      
+      if (!appointmentDoc.exists()) {
+        throw new Error('Agendamento não encontrado');
+      }
 
+      const appointmentData = appointmentDoc.data();
       const newStatus = action === 'accept' ? 'accepted' : action === 'reject' ? 'rejected' : 'completed';
       
+      // Atualizar status do agendamento
       await updateDoc(appointmentRef, {
         status: newStatus,
         updatedAt: serverTimestamp()
       });
 
-      // Atualizar totalEarnings do cuidador se o atendimento foi concluído
-      if (action === 'complete') {
-        const caregiverRef = doc(db, 'users', user.uid);
-        await updateDoc(caregiverRef, {
-          totalEarnings: increment(appointmentValue)
+      // Buscar informações do cuidador
+      const caregiverRef = firestoreDoc(db, 'users', user.uid);
+      const caregiverSnap = await getDoc(caregiverRef);
+      const caregiverData = caregiverSnap.data();
+      const caregiverName = caregiverData?.fullName || user.displayName || 'Cuidador';
+
+      // Enviar notificação para o cliente
+      if (action === 'accept' || action === 'reject') {
+        await NotificationService.createAppointmentStatusNotification({
+          clientId: appointmentData.clientId,
+          appointmentId,
+          caregiverName,
+          status: action === 'accept' ? 'accepted' : 'rejected',
+          date: appointmentData.date.toDate(),
+          startTime: appointmentData.startTime,
+          endTime: appointmentData.endTime
         });
-        fetchStats(); // Atualizar estatísticas após a conclusão
       }
 
-      // Atualizar o estado local
-      fetchAppointments();
+      // Se o serviço foi completado, enviar notificação de agradecimento
+      if (action === 'complete') {
+        await NotificationService.createServiceCompletedNotification({
+          clientId: appointmentData.clientId,
+          caregiverId: user.uid,
+          appointmentId,
+          clientName: appointmentData.clientName,
+          caregiverName
+        });
+      }
+
+      // Atualizar stats e lista de agendamentos
+      await loadStats();
+      await loadAppointments();
+      
     } catch (err) {
       console.error('Error updating appointment:', err);
       setError('Falha ao atualizar o agendamento');
@@ -275,14 +318,23 @@ const CaregiverDashboard: React.FC = () => {
   };
 
   const renderAppointmentCard = (appointment: Appointment) => {
+    const formattedDate = format(appointment.date.toDate(), "dd/MM/yyyy", { locale: ptBR });
+
     return (
       <div key={appointment.id} className="bg-white rounded-lg shadow-md p-6 mb-4">
         <div className="flex justify-between items-start mb-4">
           <div>
-            <h3 className="text-lg font-semibold">{appointment.clientName}</h3>
+            <h3 className="text-lg font-semibold">
+              {appointment.clientName || 'Cliente'}
+            </h3>
             <p className="text-gray-600">
-              {new Date(appointment.date).toLocaleDateString()} - {appointment.startTime} às {appointment.endTime}
+              {formattedDate} - {appointment.startTime} às {appointment.endTime}
             </p>
+            {appointment.caregiverAmount && (
+              <p className="text-green-600 mt-2">
+                Valor a receber: R$ {appointment.caregiverAmount.toFixed(2)}
+              </p>
+            )}
           </div>
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(appointment.status)}`}>
             {getStatusText(appointment.status)}
@@ -331,7 +383,6 @@ const CaregiverDashboard: React.FC = () => {
         return 'bg-green-100 text-green-800';
       case 'completed':
         return 'bg-blue-100 text-blue-800';
-      case 'cancelled':
       case 'rejected':
         return 'bg-red-100 text-red-800';
       default:
@@ -344,19 +395,17 @@ const CaregiverDashboard: React.FC = () => {
       case 'pending':
         return 'Pendente';
       case 'accepted':
-        return 'Aceito';
+        return 'Confirmado';
       case 'completed':
         return 'Concluído';
-      case 'cancelled':
-        return 'Cancelado';
       case 'rejected':
-        return 'Rejeitado';
+        return 'Cancelado';
       default:
         return status;
     }
   };
 
-  if (authLoading) {
+  if (authLoading || loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -364,126 +413,87 @@ const CaregiverDashboard: React.FC = () => {
     );
   }
 
-  if (authError) {
+  if (authError || !user) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          Erro de autenticação. Por favor, faça login novamente.
-        </div>
+      <div className="text-center py-8">
+        <p className="text-red-600">Erro ao carregar o painel. Por favor, faça login novamente.</p>
+        <Link to="/login" className="text-blue-600 hover:underline mt-2 inline-block">
+          Ir para o Login
+        </Link>
       </div>
     );
   }
-
-  if (!user) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="text-center">
-          <p className="text-gray-600 mb-4">Você precisa estar logado para acessar esta página.</p>
-          <Link
-            to="/login"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-          >
-            Fazer Login
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const handleSetAsCaregiverClick = async () => {
-    try {
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        role: 'caregiver',
-        totalEarnings: 0,
-        completedAppointments: 0,
-        updatedAt: serverTimestamp()
-      });
-      window.location.reload(); // Recarregar a página para atualizar os dados
-    } catch (err) {
-      console.error('Error setting user as caregiver:', err);
-      setError('Falha ao definir usuário como cuidador');
-    }
-  };
 
   return (
-    <div className="max-w-6xl mx-auto p-4">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Painel do Cuidador</h1>
-        <div className="flex space-x-4">
-          <Link to="/caregiver-dashboard" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-            Dashboard
-          </Link>
-          <Link to="/appointments" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-            Agendamentos
-          </Link>
-          <Link to="/profile" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-            Perfil
-          </Link>
+    <div className="container mx-auto px-4 py-8">
+      {!profileComplete && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                Seu perfil está incompleto. Por favor,{' '}
+                <Link to="/profile/caregiver" className="font-medium text-yellow-700 underline hover:text-yellow-600">
+                  complete seu perfil
+                </Link>{' '}
+                para aumentar suas chances de ser contratado.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <StatsCard
+          title="Ganhos Totais"
+          value={stats.totalEarnings}
+        />
+        <StatsCard
+          title="Atendimentos Concluídos"
+          value={stats.completedAppointments}
+        />
+        <StatsCard
+          title="Avaliação Média"
+          value={stats.averageRating || 'N/A'}
+          subtitle={`${stats.totalReviews} avaliações`}
+        />
+      </div>
+
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="border-b">
+          <nav className="flex">
+            {Object.keys(appointments).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab as keyof AppointmentGroup)}
+                className={`px-6 py-4 text-sm font-medium ${
+                  activeTab === tab
+                    ? 'border-b-2 border-blue-500 text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">
+                  {appointments[tab as keyof AppointmentGroup].length}
+                </span>
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className="p-6">
+          {appointments[activeTab].length === 0 ? (
+            <p className="text-center text-gray-500 py-8">
+              Nenhum agendamento {getStatusText(activeTab).toLowerCase()}
+            </p>
+          ) : (
+            appointments[activeTab].map(appointment => renderAppointmentCard(appointment))
+          )}
         </div>
       </div>
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-           
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold text-gray-700">Ganhos Totais</h3>
-              <p className="text-2xl font-bold text-green-600">R$ {stats.totalEarnings.toFixed(2)}</p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold text-gray-700">Atendimentos</h3>
-              <p className="text-2xl font-bold text-blue-600">{stats.completedAppointments}</p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold text-gray-700">Avaliação Média</h3>
-              <div className="flex items-center">
-                <p className="text-2xl font-bold text-yellow-600">{stats.averageRating.toFixed(1)}</p>
-                <span className="text-sm text-gray-500 ml-2">({stats.totalReviews} avaliações)</span>
-              </div>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold text-gray-700">Solicitações Pendentes</h3>
-              <p className="text-2xl font-bold text-orange-600">{appointments.pending.length}</p>
-            </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="border-b border-gray-200 mb-6">
-            <nav className="-mb-px flex space-x-8">
-              {Object.keys(appointments).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setSelectedTab(tab as keyof AppointmentGroup)}
-                  className={`${
-                    selectedTab === tab
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-                >
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                  {' '}
-                  ({appointments[tab as keyof AppointmentGroup].length})
-                </button>
-              ))}
-            </nav>
-          </div>
-
-          {/* Appointment List */}
-          <div className="space-y-4">
-            {appointments[selectedTab].length === 0 ? (
-              <div className="text-center py-8 bg-white rounded-lg shadow">
-                <p className="text-gray-500">Nenhum agendamento encontrado</p>
-              </div>
-            ) : (
-              appointments[selectedTab].map(renderAppointmentCard)
-            )}
-          </div>
-        </>
-      )}
     </div>
   );
 };

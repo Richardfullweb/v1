@@ -10,8 +10,12 @@ import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import Home from './components/Home';
 import Login from './components/Login';
-import Register from './components/Register';
+import HowItWorks from './pages/HowItWorks';
+import Professional from './pages/Professional';
+import RegisterClient from './components/RegisterClient';
+import RegisterCaregiver from './components/RegisterCaregiver';
 import Profile from './components/Profile';
+import ProfileCaregiver from './components/Profile/ProfileCaregiver';
 import Search from './components/Search';
 import ClientDashboard from './components/Dashboard/ClientDashboard';
 import AppointmentsPage from './components/Appointments/AppointmentsPage';
@@ -73,40 +77,34 @@ function App() {
                     <Routes>
                         {/* Public routes */}
                         <Route path="/" element={<Home />} />
-                        <Route
-                            path="/login"
-                            element={
-                                user ? (
-                                    userProfile?.role === 'caregiver' ? (
-                                        <Navigate to="/caregiver-dashboard" />
-                                    ) : (
-                                        <Navigate to="/dashboard" />
-                                    )
-                                ) : (
-                                    <Login />
-                                )
-                            }
-                        />
-                        <Route
-                            path="/register"
-                            element={user ? (
-                                userProfile?.role === 'caregiver' ? (
-                                    <Navigate to="/caregiver-dashboard" />
-                                ) : (
-                                    <Navigate to="/dashboard" />
-                                )
-                            ) : (
-                                <Register />
-                            )
-                            }
-                        />
+                        <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
+                        <Route path="/how-it-works" element={<HowItWorks />} />
+                        <Route path="/professional" element={<Professional />} />
+                        <Route path="/register/client" element={user ? <Navigate to="/dashboard" /> : <RegisterClient />} />
+                        <Route path="/register/caregiver" element={user ? <Navigate to="/dashboard" /> : <RegisterCaregiver />} />
 
                         {/* Protected routes */}
                         <Route
-                            path="/profile"
+                            path="/dashboard"
                             element={
                                 <PrivateRoute>
-                                    <Profile />
+                                    {userProfile?.role === 'caregiver' ? (
+                                        <CaregiverDashboard />
+                                    ) : (
+                                        <ClientDashboard />
+                                    )}
+                                </PrivateRoute>
+                            }
+                        />
+                        <Route
+                            path="/appointments"
+                            element={
+                                <PrivateRoute>
+                                    {userProfile?.role === 'caregiver' ? (
+                                        <AppointmentsPage />
+                                    ) : (
+                                        <Navigate to="/dashboard" />
+                                    )}
                                 </PrivateRoute>
                             }
                         />
@@ -119,34 +117,18 @@ function App() {
                             }
                         />
                         <Route
-                            path="/dashboard"
+                            path="/profile"
                             element={
                                 <PrivateRoute>
-                                    <ClientDashboard />
+                                    <Profile />
                                 </PrivateRoute>
                             }
                         />
                         <Route
-                            path="/caregiver-dashboard"
+                            path="/profile/caregiver"
                             element={
                                 <PrivateRoute>
-                                    <CaregiverDashboard />
-                                </PrivateRoute>
-                            }
-                        />
-                        <Route
-                            path="/appointments"
-                            element={
-                                <PrivateRoute>
-                                    <AppointmentsPage />
-                                </PrivateRoute>
-                            }
-                        />
-                        <Route
-                            path="/payments"
-                            element={
-                                <PrivateRoute>
-                                    <PaymentPage />
+                                    <ProfileCaregiver />
                                 </PrivateRoute>
                             }
                         />
@@ -158,6 +140,14 @@ function App() {
                                 </PrivateRoute>
                             }
                         />
+                        <Route
+                            path="/payment"
+                            element={
+                                <PrivateRoute>
+                                    <PaymentPage />
+                                </PrivateRoute>
+                            }
+                        />
 
                         {/* Catch all route */}
                         <Route path="*" element={<Navigate to="/" replace />} />
@@ -166,7 +156,7 @@ function App() {
 
                 <footer className="bg-gray-800 text-white py-4 mt-auto">
                     <div className="container mx-auto px-4 text-center">
-                        <p>© {new Date().getFullYear()} CareConnect. All rights reserved.</p>
+                        <p> {new Date().getFullYear()} CareConnect. All rights reserved.</p>
                     </div>
                 </footer>
             </div>

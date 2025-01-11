@@ -9,7 +9,7 @@ import React from 'react';
       return (
         <div className="min-h-screen bg-gray-50">
           <Navbar />
-          <main className="container mx-auto px-4 py-8">
+          <main className="container mx-auto px-4 pt-24 pb-8 mt-8">
             {children}
           </main>
           <footer className="bg-gray-800 text-white py-4 mt-auto">

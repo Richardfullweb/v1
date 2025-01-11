@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { firestore } from '../../firebase';
-import AppointmentBooking from './AppointmentBooking';
 import MultiHourAppointmentBooking from './MultiHourAppointmentBooking';
 
 interface CaregiverProfileProps {
@@ -13,6 +12,7 @@ const CaregiverProfile: React.FC<CaregiverProfileProps> = () => {
   const [caregiver, setCaregiver] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showMultiHourBooking, setShowMultiHourBooking] = useState(false);
 
   useEffect(() => {
     const fetchCaregiver = async () => {
@@ -88,18 +88,22 @@ const CaregiverProfile: React.FC<CaregiverProfileProps> = () => {
         </div>
         <div className="mt-6">
           <h3 className="text-xl font-semibold mb-4">Agendamento</h3>
-          <AppointmentBooking caregiverId={caregiverId} />
-          <p className="mt-4 text-center">
-            Precisa de mais de uma hora?
-            <Link
-              to={`/multi-hour-appointment/${caregiverId}`}
-              className="text-blue-600 underline"
-            >
-              Clique aqui
-            </Link>
-          </p>
+          <button
+            onClick={() => setShowMultiHourBooking(true)}
+            className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          >
+            Agendar Horário
+          </button>
         </div>
       </div>
+
+      {showMultiHourBooking && (
+        <MultiHourAppointmentBooking
+          caregiverId={caregiverId}
+          hourlyRate={caregiver.hourlyRate || 0}
+          onClose={() => setShowMultiHourBooking(false)}
+        />
+      )}
     </div>
   );
 };
